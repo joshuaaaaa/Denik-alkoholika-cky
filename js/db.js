@@ -65,7 +65,9 @@ export const DEFAULTS = {
   pinHash: '',
   reminderTime: '21:00',
   reminderOn: false,
-  saveDictationAudio: false
+  saveDictationAudio: false,
+  myWords: '',
+  onlineCorrection: false
 };
 
 let cache = null;

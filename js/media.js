@@ -129,12 +129,12 @@ export class Dictation {
     this.rec.lang = lang;
     this.rec.continuous = true;
     this.rec.interimResults = true;
-    this.rec.maxAlternatives = 1;
+    this.rec.maxAlternatives = 3; // alternativy pomáhají v korektuře opravit špatně rozpoznaná slova
     this.rec.onresult = e => {
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i];
-        if (r.isFinal) onFinal(r[0].transcript);
+        if (r.isFinal) onFinal(r[0].transcript, [...r].map(a => a.transcript));
         else interim += r[0].transcript;
       }
       onInterim?.(interim);

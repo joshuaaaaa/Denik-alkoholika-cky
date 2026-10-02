@@ -11,7 +11,8 @@ Vzhled: linkovaný papír s okrajem, ručně psané písmo a kniha, ve které se
 | Oblast | Co umí |
 |---|---|
 | ✍️ Zápisky | denní i **hodinové** zápisy, všední / ⭐ nevšední den, nadpis, štítky, nálada, pocity, vděčnost |
-| 🎙️ Diktování | převod hlasu na text v češtině, hlasové příkazy („tečka“, „čárka“, „nový řádek“…), **korektura** se zvýrazněním změn, vlastní slovník oprav, oprava i po uložení, historie verzí, uchování původního přepisu |
+| 🎙️ Diktování | převod hlasu na text v češtině, hlasové příkazy („tečka“, „čárka“, „nový řádek“…), oprava i po uložení, historie verzí, uchování původního přepisu |
+| ✨ Korektura | interpunkce a velká písmena, **doplnění háčků a čárek**, **pravopis** podle offline českého slovníku (150 tis. tvarů), **oprava slov špatně rozpoznaných z řeči** (klepnutím na slovo, návrhy i z alternativ rozpoznávání), učení se oprav, vlastní slova (jména), volitelně online Korektor (MFF UK) |
 | 📷 Fotky | automatické zmenšení a převod do WebP (typicky z 3–5 MB na ~200 kB), volba kvality |
 | 🎥 Vlogy | natáčení videa přímo v aplikaci v 480p s nízkým datovým tokem, hlasové poznámky, náhled ve knize |
 | 📅 Kalendář | měsíční přehled s barvou nálady, hodinová časová osa dne (klepnutím na hodinu nový zápis) |
@@ -75,6 +76,8 @@ js/db.js              úložiště IndexedDB
 sw.js                 offline režim
 js/native.js          napojení na Android (Capacitor pluginy)
 vendor/               jsPDF, html2canvas, Capacitor runtime (MIT)
+dict/                 český slovník pro korekturu (CC BY-SA 4.0)
+js/speller.js         pravopis, háčky a čárky, návrhy oprav
 fonts/                písma Caveat a Lora (OFL) – offline
 android/              nativní projekt Android (Capacitor)
 scripts/build-web.mjs příprava složky www/ pro Android

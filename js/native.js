@@ -56,6 +56,7 @@ export class NativeDictation {
     this.active = true;
     this.handles.push(await SR.addListener('partialResults', d => {
       this.last = d.matches?.[0] || '';
+      this.alts = d.matches || [];
       this.onInterim?.(this.last);
     }));
     // Android po chvíli ticha poslouchání ukončí – dokud uživatel nezastaví, spustíme ho znovu
@@ -68,11 +69,11 @@ export class NativeDictation {
   }
   listen() {
     if (!this.active) return;
-    this.SR.start({ language: this.lang, maxResults: 1, partialResults: true, popup: false })
+    this.SR.start({ language: this.lang, maxResults: 3, partialResults: true, popup: false })
       .catch(() => { if (this.active) setTimeout(() => this.listen(), 800); });
   }
   flush() {
-    if (this.last.trim()) this.onFinal(this.last);
+    if (this.last.trim()) this.onFinal(this.last, this.alts);
     this.last = '';
     this.onInterim?.('');
   }

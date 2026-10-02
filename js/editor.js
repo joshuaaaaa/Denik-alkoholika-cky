@@ -1,7 +1,8 @@
 // Editor zápisu, nahrávání vlogu/hlasu, korektura, editory milníků a plánů.
 import * as db from './db.js';
 import { $, $$, esc, toast, openModal, ask, pickFiles, isoDate, nowTime, MOODS, EMOTIONS, MS_CATS, hooks, objUrl } from './core.js';
-import { applyVoiceCommands, autoCorrect, parseDictionary, describeChanges, diffHtml } from './text.js';
+import { applyVoiceCommands, autoCorrect, parseDictionary, diffHtml } from './text.js';
+import { loadSpeller, setUserWords, check, suggest, matchCase, applyFixes, autoDiacritics, hintsFromAlternatives, korektorOnline } from './speller.js';
 import { compressImage, videoThumb, Recorder, dictationSupported, createDictation, fmtSize } from './media.js';
 import { isNative } from './native.js';
 
@@ -90,23 +91,130 @@ export function openRecorder(kind) {
 }
 
 // ---------- Korektura ----------
-export function openCorrection(text, settings) {
+const TYPE_INFO = {
+  preklep: 'Slovo není ve slovníku – možná překlep.',
+  diakritika: 'Pravděpodobně chybí nebo nesedí háčky a čárky.',
+  rozpoznani: 'Rozpoznávání řeči zde zaváhalo – zkontrolujte slovo.'
+};
+const remember = async (settings, wrong, right) => {
+  const pair = `${wrong.toLowerCase()}=${right.toLowerCase()}`;
+  const lines = (settings.corrections || '').split('\n').filter(l => l && !l.startsWith(wrong.toLowerCase() + '='));
+  await db.setSetting('corrections', [...lines, pair].join('\n'));
+};
+
+/**
+ * Korektura: interpunkce a velká písmena, doplnění háčků a čárek, pravopis (offline slovník),
+ * opravy slov špatně rozpoznaných z řeči a volitelně online Korektor. Vrací opravený text nebo null.
+ */
+export function openCorrection(text, settings, hints = {}) {
   return new Promise(resolve => {
-    const fixed = autoCorrect(text, parseDictionary(settings.corrections));
-    let result = null;
-    const notes = describeChanges(text, fixed);
+    let result = null, cur = text, editing = false, ready = false, autoCount = 0, issues = [];
     const m = openModal({
       title: 'Korektura textu',
-      html: fixed === text
-        ? '<p class="empty">Text vypadá v pořádku ✓</p><p class="muted small center">Další překlepy podtrhává kontrola pravopisu vaší klávesnice.</p>'
-        : `<p class="muted small">Navržené opravy: ${esc(notes.join(', '))}. <ins style="background:#cdeccd;text-decoration:none">zelené</ins> = přidáno, <del style="background:#f4c7c0">červené</del> = odebráno.</p>
-           <div class="card diff">${diffHtml(text, fixed, esc)}</div>
-           <label class="f">Výsledný text (můžete ho ještě upravit)</label>
-           <textarea class="in" data-t rows="8" spellcheck="true" lang="cs">${esc(fixed)}</textarea>
-           <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn secondary" data-close>Ponechat původní</button><button class="btn" data-apply>✓ Použít opravy</button></div>`,
+      html: `
+        <p class="muted small" data-sum>Načítám slovník…</p>
+        <div class="card sp-text" data-view></div>
+        <textarea class="in hidden" data-t rows="10" spellcheck="true" lang="cs"></textarea>
+        <div class="row" style="margin:6px 0 12px">
+          <button class="btn small secondary" data-edit>✏️ Upravit ručně</button>
+          <button class="btn small secondary" data-all>✨ Opravit vše podle návrhů</button>
+          ${settings.onlineCorrection ? '<button class="btn small secondary" data-online>🌐 Hloubková kontrola online</button>' : ''}
+        </div>
+        <p class="small muted">Klepněte na <b>kterékoli slovo</b> a vyberte správný tvar. <span class="sp-bad">Vlnovka</span> = neznámé slovo, <span class="sp-asr">tečky</span> = možná chyba rozpoznání řeči.</p>
+        <details class="card small"><summary>Co se změnilo oproti původnímu textu</summary><div class="diff" data-diff></div></details>
+        <div class="row" style="justify-content:flex-end"><button class="btn secondary" data-close>Ponechat původní</button><button class="btn" data-apply>✓ Použít</button></div>`,
       onClose: () => resolve(result)
     });
-    $('[data-apply]', m.el)?.addEventListener('click', () => { result = $('[data-t]', m.el).value; m.close(); });
+    const el = m.el, view = $('[data-view]', el), ta = $('[data-t]', el);
+
+    function render() {
+      issues = ready ? check(cur, hints) : [];
+      const at = new Map(issues.map(i => [i.start, i]));
+      let html = '', last = 0;
+      for (const w of cur.matchAll(/\p{L}+/gu)) {
+        const i = at.get(w.index);
+        const cls = i ? (i.type === 'rozpoznani' ? 'sp-asr' : 'sp-bad') : '';
+        html += esc(cur.slice(last, w.index)) + `<span class="w ${cls}" data-s="${w.index}">${esc(w[0])}</span>`;
+        last = w.index + w[0].length;
+      }
+      view.innerHTML = html + esc(cur.slice(last));
+      $('[data-diff]', el).innerHTML = diffHtml(text, cur, esc);
+      const left = issues.filter(i => i.type !== 'rozpoznani').length;
+      $('[data-sum]', el).innerHTML = (cur === text ? 'Automaticky nebylo nutné nic měnit. ' : `Automaticky opraveno (interpunkce, velká písmena${autoCount ? `, háčky a čárky u ${autoCount} slov` : ''}). `) +
+        (!ready ? '<b>Slovník se nepodařilo načíst – kontrola pravopisu je vypnutá.</b>' : left ? `Ke kontrole zbývá <b>${left}</b> ${left === 1 ? 'slovo' : left < 5 ? 'slova' : 'slov'}.` : 'Pravopis vypadá v pořádku ✓');
+    }
+
+    function replaceAt(start, word, rep) {
+      cur = cur.slice(0, start) + rep + cur.slice(start + word.length);
+      render();
+    }
+
+    function openWord(start) {
+      const word = cur.slice(start).match(/^\p{L}+/u)[0];
+      const lw = word.toLowerCase();
+      const issue = issues.find(i => i.start === start);
+      const sugg = [...new Set([...(issue?.suggestions || []), ...(hints[lw] || []), ...(ready ? suggest(lw, 8) : [])])]
+        .filter(x => x !== lw).slice(0, 8).map(x => matchCase(word, x));
+      const unknown = issue?.type === 'preklep';
+      const sm = openModal({
+        sheet: true, title: `„${word}“`,
+        html: `${issue ? `<p class="small muted">${TYPE_INFO[issue.type]}</p>` : '<p class="small muted">Vyberte správné slovo, pokud ho diktování zachytilo špatně.</p>'}
+          <div class="chips" style="margin:8px 0">${sugg.map(x => `<button class="chip" data-r="${esc(x)}" style="font-size:17px;padding:6px 14px">${esc(x)}</button>`).join('') || '<span class="muted small">Žádné návrhy</span>'}</div>
+          <div class="row"><input class="in grow" data-own value="${esc(word)}" spellcheck="true" lang="cs"><button class="btn" data-ok>Nahradit</button></div>
+          <label class="switch small"><span>Zapamatovat si – příště „${esc(lw)}“ opravit automaticky</span><input type="checkbox" data-rem ${unknown ? 'checked' : ''}></label>
+          <div class="row" style="margin-top:8px">
+            ${unknown ? '<button class="btn small secondary" data-add>➕ Je to správně – přidat do mého slovníku</button>' : ''}
+            <button class="btn small ghost" data-close>Ponechat</button></div>`
+      });
+      const choose = async rep => {
+        if (!rep || rep === word) return sm.close();
+        if ($('[data-rem]', sm.el).checked) await remember(settings, word, rep);
+        replaceAt(start, word, rep);
+        sm.close();
+      };
+      $$('[data-r]', sm.el).forEach(b => b.onclick = () => choose(b.dataset.r));
+      $('[data-ok]', sm.el).onclick = () => choose($('[data-own]', sm.el).value.trim());
+      $('[data-add]', sm.el)?.addEventListener('click', async () => {
+        const words = [settings.myWords, lw].filter(Boolean).join('\n');
+        await db.setSetting('myWords', words);
+        setUserWords(words);
+        toast(`„${word}“ přidáno do vašeho slovníku`);
+        render(); sm.close();
+      });
+    }
+
+    view.addEventListener('click', e => { const w = e.target.closest('.w'); if (w) openWord(+w.dataset.s); });
+    $('[data-edit]', el).onclick = e => {
+      editing = !editing;
+      if (editing) { ta.value = cur; ta.style.height = Math.max(240, view.offsetHeight) + 'px'; }
+      else { cur = ta.value; render(); }
+      ta.classList.toggle('hidden', !editing); view.classList.toggle('hidden', editing);
+      e.target.textContent = editing ? '✓ Hotovo' : '✏️ Upravit ručně';
+    };
+    $('[data-all]', el).onclick = () => {
+      const fixes = issues.filter(i => i.type !== 'rozpoznani' && i.suggestions[0]).map(i => ({ ...i, replacement: i.suggestions[0] }));
+      if (!fixes.length) return toast('Žádné další návrhy');
+      cur = applyFixes(cur, fixes); render();
+      toast(`Opraveno ${fixes.length} slov`);
+    };
+    $('[data-online]', el)?.addEventListener('click', async ev => {
+      const b = ev.target; b.disabled = true; b.textContent = '🌐 Kontroluji…';
+      try {
+        const res = await korektorOnline(cur);
+        if (res === cur) toast('Online kontrola nenašla nic dalšího ✓');
+        else if (await ask(`Online korektura navrhuje ${diffHtml(cur, res, x => x).split('<ins>').length - 1} změn. Použít je? (Zobrazí se v „Co se změnilo“.)`, { ok: 'Použít' })) { cur = res; render(); }
+      } catch { toast('Online korektura teď není dostupná', 3500); }
+      b.disabled = false; b.textContent = '🌐 Hloubková kontrola online';
+    });
+    $('[data-apply]', el).onclick = () => { result = editing ? ta.value : cur; m.close(); };
+
+    (async () => {
+      setUserWords(settings.myWords);
+      cur = autoCorrect(text, parseDictionary(settings.corrections));
+      ready = await loadSpeller();
+      if (ready) { const r = autoDiacritics(cur, hints); cur = r.text; autoCount = r.count; }
+      render();
+    })();
   });
 }
 
@@ -120,6 +228,7 @@ export async function openEditor(opts = {}) {
     media: [], gratitude: ['', '', ''], special: false, sober: null, craving: 0, drinks: 0, createdAt: Date.now()
   };
   e.gratitude = [...(e.gratitude || []), '', '', ''].slice(0, 3);
+  const hints = {};      // alternativy slov z rozpoznávání řeči (pro korekturu)
   const added = [];      // média přidaná v tomto okně (při zrušení smazat)
   const removed = [];    // média odebraná (smazat až po uložení)
   let saved = false, dictation = null, voiceRec = null;
@@ -292,14 +401,14 @@ export async function openEditor(opts = {}) {
       if (blob?.size) { const md = await saveAudio(blob, 0); mediaCache[md.id] = md; e.media.push(md.id); added.push(md.id); paintAtt(); }
     }
     if (ta.value.trim()) {
-      const r = await openCorrection(ta.value, S);
+      const r = await openCorrection(ta.value, S, hints);
       if (r !== null) { ta.value = r; grow(); saveDraft(); }
     }
   }
   async function startDictation() {
     if (!await dictationSupported()) return toast(isNative ? 'Rozpoznávání řeči není v telefonu dostupné – nainstalujte aplikaci Google.' : 'Tento prohlížeč neumí převod řeči na text. Zkuste Chrome, nebo mikrofon na klávesnici.', 4500);
     dictation = createDictation({
-      onFinal: t => { e.raw = (e.raw ? e.raw + ' ' : '') + t.trim(); insertText(applyVoiceCommands(t)); },
+      onFinal: (t, alts) => { e.raw = (e.raw ? e.raw + ' ' : '') + t.trim(); hintsFromAlternatives(alts, hints); insertText(applyVoiceCommands(t)); },
       onInterim: t => { interim.textContent = t; },
       onState: (on, err) => { if (!on && dictation) { if (err) toast('Mikrofon není povolen'); stopDictation(); } }
     });
@@ -313,7 +422,7 @@ export async function openEditor(opts = {}) {
   dictBtn.onclick = () => dictation ? stopDictation() : startDictation();
   $('[data-corr]', el).onclick = async () => {
     if (!ta.value.trim()) return toast('Nejdřív něco napište nebo nadiktujte');
-    const r = await openCorrection(ta.value, S);
+    const r = await openCorrection(ta.value, S, hints);
     if (r !== null) { ta.value = r; grow(); saveDraft(); }
   };
 

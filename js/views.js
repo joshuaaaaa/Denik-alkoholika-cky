@@ -630,8 +630,12 @@ export async function viewSettings() {
       <p class="small muted">Fotky se před uložením zmenší a převedou do formátu WebP – typicky 20× menší než originál.</p></div>
     <div class="card"><h3>🎙️ Diktování a korektura</h3>
       <label class="switch"><span>Ukládat i zvukovou nahrávku diktátu</span><input type="checkbox" data-k="saveDictationAudio" ${S.saveDictationAudio ? 'checked' : ''}></label>
-      <label class="f">Vlastní slovník oprav (špatně=správně, každý na řádek)</label>
-      <textarea class="in" data-k="corrections" rows="5">${esc(S.corrections)}</textarea></div>
+      <p class="small muted">Korektura doplní háčky a čárky, opraví překlepy podle českého slovníku (offline) a nabídne opravu slov, která diktování zachytilo špatně. Klepnutím na slovo v korektuře vyberete správný tvar.</p>
+      <label class="f">Moje slova – jména, místa, přezdívky (nebudou označena jako chyba)</label>
+      <textarea class="in" data-k="myWords" rows="3" placeholder="Anička&#10;Kateřinky&#10;Bertík">${esc(S.myWords)}</textarea>
+      <label class="f">Naučené opravy (špatně=správně, každá na řádek) – doplňují se samy, když v korektuře zvolíte „Zapamatovat“</label>
+      <textarea class="in" data-k="corrections" rows="5">${esc(S.corrections)}</textarea>
+      <label class="switch"><span>🌐 Hloubková kontrola online (Korektor, MFF UK)<br><small class="muted">Opraví i slova, která sice existují, ale do věty nepatří. Text se při kontrole odešle na server Univerzity Karlovy – zapněte jen pokud vám to nevadí.</small></span><input type="checkbox" data-k="onlineCorrection" ${S.onlineCorrection ? 'checked' : ''}></label></div>
     <div class="card"><h3>🌱 Sledování střízlivosti</h3>
       <label class="switch"><span>Zapnout počítadlo dní bez alkoholu</span><input type="checkbox" data-k="sobriety" ${S.sobriety ? 'checked' : ''}></label>
       <div class="${S.sobriety ? '' : 'hidden'}" data-sob>
@@ -830,13 +834,14 @@ export function viewAbout() {
   view().innerHTML = `
     <div class="card paper"><h2>Můj deník</h2>
       <p class="hand">Deník pro každého, kdo něco prožil. Pro všední i nevšední dny, pro pocity, plány a milníky života – a pro cestu ke střízlivosti, pokud ji právě jdete.</p>
+      <p class="small muted">Český slovník pro korekturu: FrequencyWords (H. Dave, OpenSubtitles), CC BY-SA 4.0.</p>
       <p class="small muted">Inspirováno knihami Michaely Duffkové „Zápisník alkoholičky“ a „Deník nealkoholičky“ – upřímné psaní pomáhá pochopit sám sebe.</p></div>
     <div class="card"><h3>📲 Instalace do telefonu</h3>
       <p class="small"><b>Android (Chrome):</b> menu ⋮ → „Přidat na plochu“ / „Nainstalovat aplikaci“.<br>
       <b>iPhone (Safari):</b> tlačítko Sdílet → „Přidat na plochu“.<br>Pak funguje i bez internetu jako běžná aplikace.</p></div>
     <div class="card"><h3>🎙️ Hlasové příkazy při diktování</h3>
       <p class="small">„tečka“, „čárka“, „otazník“, „vykřičník“, „dvojtečka“, „pomlčka“, „tři tečky“, „nový řádek“, „nový odstavec“, „smajlík“.<br>
-      Po zastavení diktování se otevře <b>korektura</b>: doplní velká písmena, interpunkci, opraví mezery a slova z vašeho slovníku oprav. Původní přepis zůstává uložený a každou úpravu lze vrátit (historie verzí).</p></div>
+      Po zastavení diktování se otevře <b>korektura</b>: doplní velká písmena a interpunkci, <b>háčky a čárky</b>, opraví <b>překlepy</b> podle českého slovníku a podtrhne slova, u kterých si rozpoznávání řeči nebylo jisté. Klepnutím na slovo vyberete správný tvar; s volbou „Zapamatovat“ se stejná chyba příště opraví sama. Původní přepis zůstává uložený a každou úpravu lze vrátit (historie verzí).</p></div>
     <div class="card"><h3>🔒 Soukromí</h3>
       <p class="small">Vše se ukládá pouze ve vašem zařízení (IndexedDB). Nic se neodesílá na server. Diktování využívá rozpoznávání řeči prohlížeče (v Chrome může zvuk zpracovat Google). Pravidelně si dělejte zálohu – při smazání dat prohlížeče nebo ztrátě telefonu by se deník ztratil.</p></div>`;
 }
