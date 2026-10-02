@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#6d4428"/>
+  <rect x="108" y="76" width="300" height="360" rx="18" fill="#fbf6e9"/>
+  <rect x="108" y="76" width="40" height="360" rx="12" fill="#8b5e3c"/>
+  <g stroke="#c9d8ea" stroke-width="6">
+    <line x1="170" y1="170" x2="380" y2="170"/><line x1="170" y1="215" x2="380" y2="215"/>
+    <line x1="170" y1="260" x2="380" y2="260"/><line x1="170" y1="305" x2="380" y2="305"/>
+    <line x1="170" y1="350" x2="380" y2="350"/>
+  </g>
+  <line x1="182" y1="100" x2="182" y2="420" stroke="#e4a4a4" stroke-width="5"/>
+  <path d="M200 160 q20 -30 40 0 t40 0 t40 0" fill="none" stroke="#2b2a33" stroke-width="7" stroke-linecap="round"/>
+  <path d="M200 205 q20 -30 40 0 t40 0" fill="none" stroke="#2b2a33" stroke-width="7" stroke-linecap="round"/>
+  <g transform="rotate(40 330 330)">
+    <rect x="310" y="200" width="40" height="190" rx="8" fill="#c9893f"/>
+    <polygon points="310,390 350,390 330,430" fill="#2b2a33"/>
+  </g>
+  <path d="M370 96 l0 70 l18 -14 l18 14 l0 -70z" fill="#c0563f"/>
+</svg>

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Můj deník</title>
+  <meta name="description" content="Osobní deník – všední i nevšední zápisky, hodinový zápis, vlogy, diktování, milníky a plány. Data zůstávají jen ve vašem telefonu.">
+  <meta name="theme-color" content="#8b5e3c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Deník">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&family=Lora:ital,wght@0,400;0,600;1,400&display=swap&subset=latin-ext" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="lock" class="lock hidden" aria-live="polite"></div>
+
+  <header class="topbar">
+    <button class="icon-btn" id="btn-search" aria-label="Hledat">🔍</button>
+    <h1 id="view-title">Můj deník</h1>
+    <button class="icon-btn" id="btn-sos" aria-label="Pomoc a SOS">🆘</button>
+  </header>
+
+  <main id="view" class="view" tabindex="-1"></main>
+
+  <nav class="tabbar" aria-label="Hlavní navigace">
+    <a href="#today" data-tab="today"><span>📝</span>Dnes</a>
+    <a href="#calendar" data-tab="calendar"><span>📅</span>Kalendář</a>
+    <a href="#book" data-tab="book"><span>📖</span>Kniha</a>
+    <a href="#milestones" data-tab="milestones"><span>⭐</span>Milníky</a>
+    <a href="#more" data-tab="more"><span>☰</span>Více</a>
+  </nav>
+
+  <div id="modals"></div>
+  <div id="toast" class="toast" role="status"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
