@@ -1,3 +1,4 @@
+import { isNative, nativeSave, nativeShare } from './native.js';
 // Sdílené pomocné funkce: DOM, data, modální okna, sdílení souborů.
 export const $ = (s, el = document) => el.querySelector(s);
 export const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -113,23 +114,27 @@ export function pickFiles({ accept = 'image/*', multiple = false, capture = null
   });
 }
 
-export function saveBlob(blob, filename) {
+/** Uloží soubor. Vrací popis místa uložení (v Androidu složku Dokumenty). */
+export async function saveBlob(blob, filename) {
+  if (isNative) return nativeSave(blob, filename);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  return 'Stažené soubory';
 }
 
 /** Sdílení souboru přes systémové menu (WhatsApp, e-mail, Disk…), jinak stažení. */
 export async function shareOrSave(blob, filename, title = 'Můj deník') {
+  if (isNative) return nativeShare(blob, filename, title);
   const file = new File([blob], filename, { type: blob.type });
   if (navigator.canShare?.({ files: [file] })) {
     try { await navigator.share({ files: [file], title }); return 'shared'; }
     catch (e) { if (e.name === 'AbortError') return 'aborted'; }
   }
-  saveBlob(blob, filename);
+  await saveBlob(blob, filename);
   return 'saved';
 }
 

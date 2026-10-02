@@ -1,3 +1,4 @@
+import { isNative, nativeSpeechAvailable, NativeDictation } from './native.js';
 // Fotky (komprese), nahrávání vlogů a hlasu, převod řeči na text.
 
 export const QUALITY = {
@@ -110,6 +111,13 @@ export class Recorder {
   }
   release() { this.stream?.getTracks().forEach(t => t.stop()); this.stream = null; }
 }
+
+/** Je k dispozici převod řeči na text? (Android: nativní, prohlížeč: Web Speech API) */
+export async function dictationSupported() {
+  if (isNative) return nativeSpeechAvailable();
+  return Dictation.supported;
+}
+export const createDictation = opts => isNative ? new NativeDictation(opts) : new Dictation(opts);
 
 /** Diktování – Web Speech API v češtině. */
 export class Dictation {

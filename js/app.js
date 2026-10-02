@@ -2,6 +2,7 @@
 import * as db from './db.js';
 import { $, $$, hooks, revokeViewUrls, modalsOpen } from './core.js';
 import * as V from './views.js';
+import { isNative, setupBackButton } from './native.js';
 
 const routes = {
   today: V.viewToday, calendar: V.viewCalendar, book: V.viewBook, milestones: V.viewMilestones,
@@ -64,7 +65,8 @@ document.addEventListener('visibilitychange', async () => {
 
 // ---------- Instalace a offline ----------
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.deferredInstall = e; });
-if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+if (isNative) setupBackButton();
+else if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 

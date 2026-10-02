@@ -64,6 +64,7 @@ export const DEFAULTS = {
   reasons: '',
   pinHash: '',
   reminderTime: '21:00',
+  reminderOn: false,
   saveDictationAudio: false
 };
 

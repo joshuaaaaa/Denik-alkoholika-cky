@@ -1,0 +1,15 @@
+{
+  "appId": "cz.mujdenik.app",
+  "appName": "Můj deník",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_notify",
+      "iconColor": "#8b5e3c"
+    }
+  }
+}

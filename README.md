@@ -24,7 +24,31 @@ Vzhled: linkovaný papír s okrajem, ručně psané písmo a kniha, ve které se
 | 🔒 Soukromí | vše jen v zařízení (IndexedDB), zámek PINem, záloha/obnova do souboru, export textu (Markdown) |
 | Další | inspirace k psaní na každý den, „Tento den v minulosti“, hledání bez diakritiky, denní připomínka do kalendáře telefonu, tmavý režim, offline režim |
 
-## Spuštění
+## 📱 Android APK
+
+APK se sestavuje automaticky přes GitHub Actions (`.github/workflows/android.yml`) po každém pushi.
+Hotový soubor je ke stažení v **Releases → `apk-latest` → `muj-denik.apk`**
+(a také jako artefakt `muj-denik-apk` u každého běhu Actions).
+
+Instalace: stáhnout APK v telefonu → otevřít → povolit „Instalovat neznámé aplikace“ pro prohlížeč/Soubory.
+Novější verze se instaluje přes starou a zápisky zůstanou (APK je podepsané stále stejným klíčem `android/app/muj-denik.keystore`).
+
+V Android verzi navíc:
+- diktování přes systémové rozpoznávání řeči Androidu (čeština),
+- skutečná denní připomínka (oznámení) – Nastavení → Denní připomínka,
+- ukládání PDF a záloh do složky **Dokumenty/MujDenik** a sdílení přes systémové menu,
+- tlačítko Zpět zavírá okna, ikona a úvodní obrazovka aplikace.
+
+Ruční sestavení (potřeba Android SDK + JDK 21):
+
+```bash
+npm ci
+npm run sync                      # zkopíruje web do www/ a synchronizuje s android/
+cd android && ./gradlew assembleRelease
+# → android/app/build/outputs/apk/release/app-release.apk
+```
+
+## Spuštění (web / PWA)
 
 Aplikace je čistě statická (HTML + JS moduly), bez sestavování.
 
@@ -49,11 +73,14 @@ js/text.js            hlasové příkazy, autokorektura, porovnání textů, ins
 js/media.js           komprese fotek, nahrávání videa/zvuku, rozpoznávání řeči
 js/db.js              úložiště IndexedDB
 sw.js                 offline režim
-vendor/               jsPDF a html2canvas (MIT) pro export PDF
+js/native.js          napojení na Android (Capacitor pluginy)
+vendor/               jsPDF, html2canvas, Capacitor runtime (MIT)
+fonts/                písma Caveat a Lora (OFL) – offline
+android/              nativní projekt Android (Capacitor)
+scripts/build-web.mjs příprava složky www/ pro Android
 ```
 
 ## Poznámky
 
 - Diktování používá Web Speech API – funguje v Chrome/Edge a Safari. V Chrome může zvuk zpracovávat Google.
 - Data jsou jen v prohlížeči telefonu – pravidelně dělejte **zálohu** (Více → Záloha).
-- Nativní APK/IPA lze z aplikace vytvořit např. přes Capacitor nebo PWABuilder.

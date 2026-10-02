@@ -8,6 +8,7 @@ import { openEditor, openMilestone, openPlan, openCorrection, PLAN_KINDS } from 
 import { promptOfDay, wordCount, diffHtml } from './text.js';
 import { fmtSize, blobToDataURL, dataURLToBlob, QUALITY } from './media.js';
 import * as Book from './book.js';
+import { isNative, scheduleReminder, cancelReminder } from './native.js';
 
 const view = () => $('#view');
 const setTitle = t => { $('#view-title').textContent = t; document.title = t + ' · Můj deník'; };
@@ -312,7 +313,7 @@ export async function viewBook() {
       <div class="row" style="justify-content:center">
         <button class="btn" data-pdf="save">📄 Uložit PDF</button>
         <button class="btn secondary" data-pdf="share">📤 Sdílet PDF</button>
-        <button class="btn secondary" data-print>🖨️ Tisk</button>
+        ${isNative ? '' : '<button class="btn secondary" data-print>🖨️ Tisk</button>'}
       </div>
       <p class="muted small center">Listujte přejetím prstem nebo klepnutím na okraj stránky.</p>
     </div>`;
@@ -374,13 +375,14 @@ export async function viewBook() {
       if (b.dataset.pdf === 'share') {
         const r = await shareOrSave(blob, name, book.title);
         if (r === 'saved') toast('Sdílení není dostupné – PDF bylo staženo');
-      } else { saveBlob(blob, name); toast(`PDF uloženo (${fmtSize(blob.size)})`); }
+      } else { const where = await saveBlob(blob, name); if (where) toast(`PDF uloženo (${fmtSize(blob.size)}) – ${where}`, 3500); }
     } catch (err) {
       ov.remove();
-      if (await ask('PDF se nepodařilo vytvořit (jste offline?). Použít tisk → „Uložit jako PDF“?', { ok: 'Tisk' })) Book.printBook(book);
+      if (isNative) toast('PDF se nepodařilo vytvořit: ' + err.message, 4000);
+      else if (await ask('PDF se nepodařilo vytvořit. Použít tisk → „Uložit jako PDF“?', { ok: 'Tisk' })) Book.printBook(book);
     }
   });
-  $('[data-print]', v).onclick = () => book && Book.printBook(book);
+  $('[data-print]', v)?.addEventListener('click', () => book && Book.printBook(book));
   build();
 }
 
@@ -644,8 +646,11 @@ export async function viewSettings() {
       <label class="f">Jméno: telefon (každý na řádek)</label><textarea class="in" data-k="contacts" rows="3" placeholder="Petr (sponzor): 777 123 456">${esc(S.contacts)}</textarea>
       <label class="f">Dopis sám/sama sobě do těžkých chvil</label><textarea class="in" data-k="letter" rows="4">${esc(S.letter)}</textarea></div>
     <div class="card"><h3>⏰ Denní připomínka</h3>
+      ${isNative ? `
+      <label class="switch"><span>Připomínat psaní každý den</span><input type="checkbox" data-rem ${S.reminderOn ? 'checked' : ''}></label>
+      <div class="row"><span class="small muted">v</span><input type="time" class="in" style="width:120px" data-remtime value="${S.reminderTime}"></div>` : `
       <p class="small muted">Přidá do kalendáře v telefonu opakovanou událost s upozorněním – funguje spolehlivě i bez internetu.</p>
-      <div class="row"><input type="time" class="in" style="width:120px" data-k="reminderTime" value="${S.reminderTime}"><button class="btn" data-ics>📅 Přidat do kalendáře</button></div></div>
+      <div class="row"><input type="time" class="in" style="width:120px" data-k="reminderTime" value="${S.reminderTime}"><button class="btn" data-ics>📅 Přidat do kalendáře</button></div>`}</div>
     <div class="card"><h3>🔒 Soukromí</h3>
       <p class="small muted">${S.pinHash ? 'Deník je chráněn PINem.' : 'Deník není zamčený.'} Data se nikam neodesílají – zůstávají jen v tomto zařízení.</p>
       <div class="row"><button class="btn" data-pin>${S.pinHash ? 'Změnit PIN' : 'Nastavit PIN'}</button>${S.pinHash ? '<button class="btn secondary" data-unpin>Zrušit PIN</button>' : ''}</div>
@@ -673,10 +678,20 @@ export async function viewSettings() {
     await db.setSetting('soberStart', isoDate(now) + 'T' + nowTime(now));
     toast('Nový začátek. Jste tu a to se počítá. 💚', 3500); hooks.refresh();
   };
-  $('[data-ics]', v).onclick = () => shareOrSave(icsEvent({
+  $('[data-ics]', v)?.addEventListener('click', () => shareOrSave(icsEvent({
     title: 'Čas na deník ✍️', description: 'Pár řádků o dnešním dni – jak se cítím, co se stalo.',
     date: isoDate(), time: $('[data-k="reminderTime"]', v).value || '21:00', rrule: 'FREQ=DAILY'
-  }), 'pripominka-denik.ics');
+  }), 'pripominka-denik.ics'));
+  // Android: skutečné upozornění z aplikace
+  const applyReminder = async () => {
+    const on = $('[data-rem]', v).checked, time = $('[data-remtime]', v).value || '21:00';
+    await db.setSetting('reminderTime', time);
+    if (!on) { await db.setSetting('reminderOn', false); await cancelReminder(); return toast('Připomínka vypnuta'); }
+    if (await scheduleReminder(time)) { await db.setSetting('reminderOn', true); toast(`Připomenu vám deník každý den v ${time} ⏰`); }
+    else { $('[data-rem]', v).checked = false; toast('Bez povolení oznámení nelze připomínat', 3500); }
+  };
+  $('[data-rem]', v)?.addEventListener('change', applyReminder);
+  $('[data-remtime]', v)?.addEventListener('change', () => { if ($('[data-rem]', v).checked) applyReminder(); });
   $('[data-pin]', v).onclick = async () => {
     const p1 = await askPin('Zadejte nový PIN (4–8 číslic)');
     if (!p1) return;
@@ -735,8 +750,8 @@ export function viewBackup() {
     out.settings = S;
     const blob = new Blob([JSON.stringify(out)], { type: 'application/json' });
     const name = `denik-zaloha-${isoDate()}.json`;
-    if (b.dataset.exp === 'share') await shareOrSave(blob, name, 'Záloha deníku'); else saveBlob(blob, name);
-    toast(`Záloha hotová (${fmtSize(blob.size)})`);
+    if (b.dataset.exp === 'share') { await shareOrSave(blob, name, 'Záloha deníku'); toast(`Záloha hotová (${fmtSize(blob.size)})`); }
+    else { const where = await saveBlob(blob, name); if (where) toast(`Záloha uložena (${fmtSize(blob.size)}) – ${where}`, 3500); }
   });
   $('[data-imp]', v).onclick = async () => {
     const [f] = await pickFiles({ accept: 'application/json,.json' });

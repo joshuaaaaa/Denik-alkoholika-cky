@@ -2,7 +2,8 @@
 import * as db from './db.js';
 import { $, $$, esc, toast, openModal, ask, pickFiles, isoDate, nowTime, MOODS, EMOTIONS, MS_CATS, hooks, objUrl } from './core.js';
 import { applyVoiceCommands, autoCorrect, parseDictionary, describeChanges, diffHtml } from './text.js';
-import { compressImage, videoThumb, Recorder, Dictation, fmtSize } from './media.js';
+import { compressImage, videoThumb, Recorder, dictationSupported, createDictation, fmtSize } from './media.js';
+import { isNative } from './native.js';
 
 const DRAFT_KEY = 'muj-denik-draft';
 const safeLS = {
@@ -296,16 +297,16 @@ export async function openEditor(opts = {}) {
     }
   }
   async function startDictation() {
-    if (!Dictation.supported) return toast('Tento prohlížeč neumí převod řeči na text. Zkuste Chrome, nebo mikrofon na klávesnici.', 4500);
-    dictation = new Dictation({
+    if (!await dictationSupported()) return toast(isNative ? 'Rozpoznávání řeči není v telefonu dostupné – nainstalujte aplikaci Google.' : 'Tento prohlížeč neumí převod řeči na text. Zkuste Chrome, nebo mikrofon na klávesnici.', 4500);
+    dictation = createDictation({
       onFinal: t => { e.raw = (e.raw ? e.raw + ' ' : '') + t.trim(); insertText(applyVoiceCommands(t)); },
       onInterim: t => { interim.textContent = t; },
       onState: (on, err) => { if (!on && dictation) { if (err) toast('Mikrofon není povolen'); stopDictation(); } }
     });
-    try { dictation.start(); } catch { return toast('Diktování nelze spustit'); }
+    try { await dictation.start(); } catch { dictation = null; return toast('Diktování nelze spustit – povolte mikrofon'); }
     dictBtn.textContent = '⏹ Zastavit'; dictBtn.classList.add('recording');
     toast('Mluvte… Řekněte „tečka“, „čárka“, „nový řádek“.', 3500);
-    if (S.saveDictationAudio) {
+    if (S.saveDictationAudio && !isNative) {
       try { voiceRec = new Recorder('audio'); await voiceRec.start(); voiceRec.record(); } catch { voiceRec = null; }
     }
   }

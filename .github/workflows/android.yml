@@ -1,0 +1,61 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main, master, 'claude/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Instalace závislostí
+        run: npm ci
+
+      - name: Příprava webu a synchronizace s Androidem
+        run: npm run sync
+
+      - name: Sestavení APK
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Přejmenování
+        run: cp android/app/build/outputs/apk/release/app-release.apk muj-denik.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: muj-denik-apk
+          path: muj-denik.apk
+
+      - name: Zveřejnění ke stažení (Releases → apk-latest)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete apk-latest --yes --cleanup-tag || true
+          gh release create apk-latest muj-denik.apk \
+            --target "${{ github.sha }}" \
+            --title "Můj deník – Android APK (sestavení ${{ github.run_number }})" \
+            --notes "Stáhněte **muj-denik.apk** v telefonu a otevřete ho. Při první instalaci povolte instalaci z neznámých zdrojů. Nová verze se nainstaluje přes starou, zápisky zůstanou zachované."

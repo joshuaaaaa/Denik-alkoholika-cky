@@ -1,9 +1,10 @@
 // Service worker – aplikace funguje i bez internetu.
-const CACHE = 'muj-denik-v1';
+const CACHE = 'muj-denik-v2';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/style.css',
-  './js/app.js', './js/core.js', './js/db.js', './js/editor.js', './js/views.js', './js/book.js', './js/text.js', './js/media.js',
-  './vendor/jspdf.umd.min.js', './vendor/html2canvas.min.js',
+  './js/app.js', './js/core.js', './js/db.js', './js/editor.js', './js/views.js', './js/book.js', './js/text.js', './js/media.js', './js/native.js',
+  './vendor/capacitor.js', './vendor/jspdf.umd.min.js', './vendor/html2canvas.min.js',
+  './fonts/fonts.css', './fonts/caveat-400-latin-ext.woff2', './fonts/caveat-400-latin.woff2', './fonts/caveat-600-latin-ext.woff2', './fonts/caveat-600-latin.woff2', './fonts/lora-400-latin-ext.woff2', './fonts/lora-400-latin.woff2', './fonts/lora-400i-latin-ext.woff2', './fonts/lora-400i-latin.woff2', './fonts/lora-600-latin-ext.woff2', './fonts/lora-600-latin.woff2',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'
 ];
 
